@@ -1,141 +1,467 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-	<script src=
-"https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.js"
-		integrity=
-"sha512-BbVEDjbqdN3Eow8+empLMrJlxXRj5nEitiCAK5A1pUr66+jLVejo3PmjIaucRnjlB0P9R3rBUs3g5jXc8ti+fQ=="
-		crossorigin="anonymous"
-		referrerpolicy="no-referrer"></script>
-	<script src=
-"https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"
-		integrity=
-"sha512-iphNRh6dPbeuPGIrQbCdbBF/qcqadKWLa35YPVfMZMHBSI6PLJh1om2xCTWhpVpmUyb4IvVS9iYnnYMkleVXLA=="
-		crossorigin="anonymous"
-		referrerpolicy="no-referrer"></script>
-	<!-- for styling -->
-	<style>
-		table {
-			border: 1px solid black;
-			margin-left: auto;
-			margin-right: auto;
-		}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Impact of AI in the Last Decade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: "Cool Neutral" (Tailwind Grays + Blue) -->
+    <!-- Application Structure Plan: A tab-based SPA structure is chosen to transform the linear presentation script into an interactive, user-driven experience. This allows users to explore the three main themes (Communication, Education, Work) in any order. Each tab features a 'Benefit vs. Challenge' layout for clear, direct comparison, supported by illustrative visualizations. Each section is also enhanced with a dynamic Gemini API call to fetch a 'Smart Summary & Future Outlook', providing deeper, up-to-date context beyond the static report. -->
+    <!-- Visualization & Content Choices: Report Info (Intro) -> Goal (Inform) -> Method (Styled Text). Report Info (3 Main Points) -> Goal (Compare) -> Method (Tabbed layout with 2-column 'Benefit' vs. 'Challenge' grids) -> Interaction (Clicking tabs displays relevant section). Chart 1 (Comm): Horizontal Bar (Chart.js) showing 'Time in Real Conversation'. Chart 2 (Edu): Doughnut Chart (Chart.js) showing 'Learning Methods'. Chart 3 (Work): Stacked Bar (Chart.js) showing 'Skill Demand' shift. All charts are illustrative (Chart.js Canvas). Gemini API (gemini-pro) is used for dynamic text generation (summaries/forecasts) triggered on tab click. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px;
+            max-height: 300px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 350px;
+            }
+        }
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            background-color: #2563eb;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3B82F6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    
+    <script>
+        const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; 
+    </script>
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
-		input[type="button"] {
-			width: 100%;
-			padding: 20px 40px;
-			background-color: green;
-			color: white;
-			font-size: 24px;
-			font-weight: bold;
-			border: none;
-			border-radius: 5px;
-		}
+        let genAI;
+        let model;
 
-		input[type="text"] {
-			padding: 20px 30px;
-			font-size: 24px;
-			font-weight: bold;
-			border: none;
-			border-radius: 5px;
-			border: 2px solid black;
-		}
-	</style>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (GEMINI_API_KEY && GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY') {
+                genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+                model = genAI.getGenerativeModel({ model: "gemini-pro" });
+            } else {
+                console.warn("Gemini API key is not set. LLM features will be disabled.");
+                document.querySelectorAll('.llm-section').forEach(el => el.style.display = 'none');
+                document.querySelectorAll('.llm-error').forEach(el => el.classList.remove('hidden'));
+            }
+        });
+
+        async function getGeminiResponse(prompt, targetElementId, loaderElementId) {
+            const targetElement = document.getElementById(targetElementId);
+            const loaderElement = document.getElementById(loaderElementId);
+            if (!targetElement || !loaderElement || !model) {
+                 if (targetElement) {
+                    targetElement.innerHTML = <p class="text-red-600">API Key not provided. Dynamic content is disabled.</p>;
+                 }
+                 if(loaderElement) {
+                    loaderElement.classList.add('hidden');
+                 }
+                 return;
+            }
+            
+            if (targetElement.innerHTML.trim() !== '') return;
+
+            targetElement.innerHTML = ''; 
+            loaderElement.classList.remove('hidden'); 
+
+            try {
+                const result = await model.generateContent(prompt);
+                const response = await result.response;
+                const text = response.text();
+                targetElement.innerHTML = <p class="text-gray-700 leading-relaxed italic">${text}</p>;
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                targetElement.innerHTML = <p class="text-red-600">Could not fetch summary. Please check your API key or try again later.</p>;
+            } finally {
+                loaderElement.classList.add('hidden'); 
+            }
+        }
+
+        window.getGeminiResponse = getGeminiResponse; 
+    </script>
 </head>
-<!-- create table -->
+<body class="bg-gray-50 text-gray-800 antialiased">
 
-<body>
-	<table id="calcu">
-		<tr>
-			<td colspan="3"><input type="text" id="result"></td>
-			<!-- clr() function will call clr to clear all value -->
-			<td><input type="button" value="c" onclick="clr()" /> </td>
-		</tr>
-		<tr>
-			<!-- create button and assign value to each button -->
-			<!-- dis("1") will call function dis to display value -->
-			<td><input type="button" value="1" onclick="dis('1')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="2" onclick="dis('2')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="3" onclick="dis('3')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="/" onclick="dis('/')"
-						onkeydown="myFunction(event)"> </td>
-		</tr>
-		<tr>
-			<td><input type="button" value="4" onclick="dis('4')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="5" onclick="dis('5')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="6" onclick="dis('6')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="*" onclick="dis('*')"
-						onkeydown="myFunction(event)"> </td>
-		</tr>
-		<tr>
-			<td><input type="button" value="7" onclick="dis('7')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="8" onclick="dis('8')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="9" onclick="dis('9')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="-" onclick="dis('-')"
-						onkeydown="myFunction(event)"> </td>
-		</tr>
-		<tr>
-			<td><input type="button" value="0" onclick="dis('0')"
-						onkeydown="myFunction(event)"> </td>
-			<td><input type="button" value="." onclick="dis('.')"
-						onkeydown="myFunction(event)"> </td>
-			<!-- solve function call function solve to evaluate value -->
-			<td><input type="button" value="=" onclick="solve()"> </td>
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">How AI Has Changed Our Lives</h1>
+            <p class="text-lg text-gray-600">An Interactive Look at the Past Decade</p>
+        </header>
 
-			<td><input type="button" value="+" onclick="dis('+')"
-						onkeydown="myFunction(event)"> </td>
-		</tr>
-	</table>
+        <nav class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
+            <button id="nav-intro" class="tab-btn active text-sm md:text-base font-semibold py-2 px-4 rounded-full bg-white text-blue-600 shadow-sm border border-gray-200 hover:bg-gray-100">
+                Introduction
+            </button>
+            <button id="nav-comm" class="tab-btn text-sm md:text-base font-semibold py-2 px-4 rounded-full bg-white text-blue-600 shadow-sm border border-gray-200 hover:bg-gray-100">
+                Communication
+            </button>
+            <button id="nav-edu" class="tab-btn text-sm md:text-base font-semibold py-2 px-4 rounded-full bg-white text-blue-600 shadow-sm border border-gray-200 hover:bg-gray-100">
+                Education
+            </button>
+            <button id="nav-work" class="tab-btn text-sm md:text-base font-semibold py-2 px-4 rounded-full bg-white text-blue-600 shadow-sm border border-gray-200 hover:bg-gray-100">
+                Work Life
+            </button>
+        </nav>
 
-	<script>
-		// Function that display value
-		function dis(val) {
-			document.getElementById("result").value += val
-		}
+        <main class="bg-white p-6 md:p-8 rounded-2xl shadow-lg min-h-[400px]">
+            
+            <section id="content-intro" class="space-y-4">
+                <h2 class="text-2xl font-bold text-blue-700 mb-4">Welcome</h2>
+                <p class="text-gray-700 leading-relaxed">
+                    The world has changed incredibly fast in the last ten years, mostly because of one thing: <strong>Artificial Intelligence, or AI</strong>. Today, AI is everywhere—it affects how we talk, how we learn, and how we work.
+                </p>
+                <p class="text-gray-700 leading-relaxed">
+                    This application allows you to interactively explore the three major ways AI has changed our lives. Click the tabs above to dive into each area, see illustrative data on its impact, and understand the benefits and challenges we face.
+                </p>
+                <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-r-lg mt-6">
+                    <p class="font-semibold">Click on "Communication", "Education", or "Work Life" to begin.</p>
+                </div>
+            </section>
+            
+            <section id="content-comm" class="hidden space-y-6">
+                <h2 class="text-2xl font-bold text-blue-700 mb-4">Impact on Communication</h2>
+                <p class="text-gray-700 leading-relaxed">
+                    AI tools like chatbots, online translators, and voice assistants have fundamentally changed how we connect. This section explores the positive and negative sides of this transformation.
+                </T>
+                
+                <div class="grid md:grid-cols-2 gap-6 items-start">
+                    
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h3 class="text-lg font-semibold text-green-800 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">✅</span> Benefits
+                        </h3>
+                        <ul class="list-disc list-inside space-y-2 text-green-700">
+                            <li>Makes connecting faster and easier.</li>
+                            <li>Tools like translators allow people to instantly understand each other.</li>
+                            <li>Connects the world by breaking language barriers.</li>
+                        </ul>
+                    </div>
 
-		function myFunction(event) {
-			if (event.key == '0' || event.key == '1'
-				|| event.key == '2' || event.key == '3'
-				|| event.key == '4' || event.key == '5'
-				|| event.key == '6' || event.key == '7'
-				|| event.key == '8' || event.key == '9'
-				|| event.key == '+' || event.key == '-'
-				|| event.key == '*' || event.key == '/')
-				document.getElementById("result").value += event.key;
-		}
+                    <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <h3 class="text-lg font-semibold text-yellow-800 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">⚠</span> Challenges
+                        </h3>
+                        <ul class="list-disc list-inside space-y-2 text-yellow-700">
+                            <li>High reliance on these tools.</li>
+                            <li>People spend less time in real, face-to-face conversations.</li>
+                            <li>Potential for misunderstanding through digital-only interaction.</li>
+                        </ul>
+                    </div>
+                </div>
 
-		var cal = document.getElementById("calcu");
-		cal.onkeyup = function (event) {
-			if (event.keyCode === 13) {
-				console.log("Enter");
-				let x = document.getElementById("result").value
-				console.log(x);
-				solve();
-			}
-		}
+                <div class="pt-4">
+                    <h3 class="text-xl font-semibold text-center text-gray-800 mb-4">Illustration: Time in Face-to-Face Conversation</h3>
+                    <div class="chart-container">
+                        <canvas id="commChart"></canvas>
+                    </div>
+                </div>
 
-		// Function that evaluates the digit and return result
-		function solve() {
-			let x = document.getElementById("result").value
-			let y = math.evaluate(x)
-			document.getElementById("result").value = y
-		}
+                <div class="llm-section bg-gray-100 p-4 rounded-lg mt-6 border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <span class="mr-2 text-blue-600">✨</span> Gemini Smart Summary & Future Outlook
+                        <div id="commLoader" class="loader hidden"></div>
+                    </h3>
+                    <p id="gemini-comm-summary" class="mt-2 text-gray-700 leading-relaxed"></p>
+                    <p class="text-red-600 hidden llm-error mt-2">API key is missing or invalid. LLM content cannot be loaded.</p>
+                </div>
+            </section>
+            
+            <section id="content-edu" class="hidden space-y-6">
+                <h2 class="text-2xl font-bold text-blue-700 mb-4">Impact on Education</h2>
+                <p class="text-gray-700 leading-relaxed">
+                    AI has made learning more personal and flexible than ever before. Students can now learn anytime, anywhere. This section weighs the power of AI as a "personal tutor" against its potential downsides.
+                </p>
 
-		// Function that clear the display
-		function clr() {
-			document.getElementById("result").value = ""
-		}
-	</script>
+                <div class="grid md:grid-cols-2 gap-6 items-start">
+                    
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h3 class="text-lg font-semibold text-green-800 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">✅</span> Benefits
+                        </h3>
+                        <ul class="list-disc list-inside space-y-2 text-green-700">
+                            <li>Learning is more personal and flexible.</li>
+                            <li>Apps like Duolingo or ChatGPT act as personal tutors.</li>
+                            <li>AI adapts to each student's learning speed.</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <h3 class="text-lg font-semibold text-yellow-800 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">⚠</span> Challenges
+                        </h3>
+                        <ul class="list-disc list-inside space-y-2 text-yellow-700">
+                            <li>Risk of reduced independent thinking.</li>
+                            <li>Over-reliance on AI for answers.</li>
+                            <li>Potential to reduce creativity and problem-solving skills.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <h3 class="text-xl font-semibold text-center text-gray-800 mb-4">Illustration: Student Learning Methods</h3>
+                    <div class="chart-container">
+                        <canvas id="eduChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="llm-section bg-gray-100 p-4 rounded-lg mt-6 border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <span class="mr-2 text-blue-600">✨</span> Gemini Smart Summary & Future Outlook
+                        <div id="eduLoader" class="loader hidden"></div>
+                    </h3>
+                    <p id="gemini-edu-summary" class="mt-2 text-gray-700 leading-relaxed"></p>
+                    <p class="text-red-600 hidden llm-error mt-2">API key is missing or invalid. LLM content cannot be loaded.</p>
+                </div>
+            </section>
+            
+            <section id="content-work" class="hidden space-y-6">
+                <h2 class="text-2xl font-bold text-blue-700 mb-4">Impact on Work Life</h2>
+                <p class="text-gray-700 leading-relaxed">
+                    In the workplace, AI is a powerful force for automation and efficiency. Companies use it for everything from customer support to complex decision-making, which has profound consequences for the workforce.
+                </p>
+
+                <div class="grid md:grid-cols-2 gap-6 items-start">
+                    
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h3 class="text-lg font-semibold text-green-800 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">✅</span> Benefits
+                        </h3>
+                        <ul class="list-disc list-inside space-y-2 text-green-700">
+                            <li>Automates repetitive tasks.</li>
+                            <li>Manages customer support and decisions.</li>
+                            <li>Helps businesses save time and money.</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <h3 class="text-lg font-semibold text-yellow-800 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">⚠</span> Challenges
+                        </h3>
+                        <ul class="list-disc list-inside space-y-2 text-yellow-700">
+                            <li>Reduces job opportunities for certain types of work.</li>
+                            <li>Creates a high demand for new, flexible skills.</li>
+                            <li>Workers must adapt to work alongside AI.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <h3 class="text-xl font-semibold text-center text-gray-800 mb-4">Illustration: Shift in Workforce Skill Demand</h3>
+                    <div class="chart-container">
+                        <canvas id="workChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="llm-section bg-gray-100 p-4 rounded-lg mt-6 border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <span class="mr-2 text-blue-600">✨</span> Gemini Smart Summary & Future Outlook
+                        <div id="workLoader" class="loader hidden"></div>
+                    </h3>
+                    <p id="gemini-work-summary" class="mt-2 text-gray-700 leading-relaxed"></p>
+                    <p class="text-red-600 hidden llm-error mt-2">API key is missing or invalid. LLM content cannot be loaded.</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="mt-8 bg-gray-800 text-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold mb-3">Our Conclusion</h2>
+            <p class="text-gray-300 mb-4">
+                To sum up, AI has made our daily lives much more efficient, connected, and productive. But in exchange, we have become much more dependent on technology.
+            </p>
+            <p class="text-lg font-semibold text-blue-300">
+                We must remember that AI is a very powerful <strong>tool</strong>—a tool to help us, not to replace us.
+            </p>
+        </footer>
+
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const tabs = [
+                { id: 'intro', btn: document.getElementById('nav-intro'), content: document.getElementById('content-intro') },
+                { id: 'comm', btn: document.getElementById('nav-comm'), content: document.getElementById('content-comm') },
+                { id: 'edu', btn: document.getElementById('nav-edu'), content: document.getElementById('content-edu') },
+                { id: 'work', btn: document.getElementById('nav-work'), content: document.getElementById('content-work') }
+            ];
+
+            let commChartInstance, eduChartInstance, workChartInstance;
+
+            function showTab(tabId) {
+                tabs.forEach(tab => {
+                    if (tab.id === tabId) {
+                        tab.btn.classList.add('active');
+                        tab.content.classList.remove('hidden');
+                    } else {
+                        tab.btn.classList.remove('active');
+                        tab.content.classList.add('hidden');
+                    }
+                });
+
+                if (tabId === 'comm') {
+                    if (!commChartInstance) commChartInstance = initCommChart();
+                    window.getGeminiResponse("Summarize the pros and cons of AI in communication, based on the report. Then, give a brief future outlook for AI in this area. Keep it under 100 words.", 'gemini-comm-summary', 'commLoader');
+                } else if (tabId === 'edu') {
+                    if (!eduChartInstance) eduChartInstance = initEduChart();
+                    window.getGeminiResponse("Summarize the pros and cons of AI in education, based on the report. Then, give a brief future outlook for AI in this area. Keep it under 100 words.", 'gemini-edu-summary', 'eduLoader');
+                } else if (tabId === 'work') {
+                    if (!workChartInstance) workChartInstance = initWorkChart();
+                    window.getGeminiResponse("Summarize the pros and cons of AI in the workplace, based on the report. Then, give a brief future outlook for AI in this area. Keep it under 100 words.", 'gemini-work-summary', 'workLoader');
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.btn.addEventListener('click', () => showTab(tab.id));
+            });
+            
+            showTab('intro');
+
+            Chart.defaults.font.family = "'Inter', 'sans-serif'";
+            Chart.defaults.font.weight = '600';
+            Chart.defaults.color = '#374151';
+
+            function initCommChart() {
+                const ctx = document.getElementById('commChart').getContext('2d');
+                return new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Avg. Weekly F-t-F Conversation'],
+                        datasets: [
+                            {
+                                label: 'Before AI Tools (est.)',
+                                data: [100],
+                                backgroundColor: '#9CA3AF', 
+                                borderColor: '#6B7280',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'With AI Tools (est.)',
+                                data: [70],
+                                backgroundColor: '#FCA5A5',
+                                borderColor: '#EF4444',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            title: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => ${context.dataset.label}: ${context.parsed.x}% (Relative)
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { max: 100, title: { display: true, text: 'Relative Amount of Time' } },
+                            y: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            function initEduChart() {
+                const ctx = document.getElementById('eduChart').getContext('2d');
+                return new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Traditional (Teacher-led)', 'AI "Personal Tutor"', 'Independent Study'],
+                        datasets: [{
+                            label: 'Focus of Student Time',
+                            data: [50, 30, 20],
+                            backgroundColor: ['#60A5FA', '#3B82F6', '#9CA3AF'],
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            title: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => ${context.label}: ${context.parsed}% of time
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function initWorkChart() {
+                const ctx = document.getElementById('workChart').getContext('2d');
+                return new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Workforce 2015', 'Workforce 2025 (Projected)'],
+                        datasets: [
+                            {
+                                label: 'Manual/Repetitive Skills',
+                                data: [70, 30],
+                                backgroundColor: '#A5B4FC',
+                            },
+                            {
+                                label: 'Analytical & AI Skills',
+                                data: [30, 70],
+                                backgroundColor: '#4F46E5',
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            title: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => ${context.dataset.label}: ${context.parsed.y}%
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { stacked: true, grid: { display: false } },
+                            y: { stacked: true, max: 100, title: { display: true, text: '% of Skill Demand' } }
+                        }
+                    }
+                });
+            }
+
+        });
+    </script>
 </body>
-
 </html>
