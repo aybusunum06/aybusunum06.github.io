@@ -52,7 +52,7 @@
     </style>
     
     <script>
-        const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; 
+        const GEMINI_API_KEY = 'AIzaSyBYOdnepWV5AxTCCHgYfvjOM3UvtzI4EWQ'; 
     </script>
     <script type="module">
         import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
@@ -61,7 +61,7 @@
         let model;
 
         document.addEventListener('DOMContentLoaded', () => {
-            if (GEMINI_API_KEY && GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY') {
+            if (GEMINI_API_KEY && GEMINI_API_KEY !== 'AIzaSyBYOdnepWV5AxTCCHgYfvjOM3UvtzI4EWQ') {
                 genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
                 model = genAI.getGenerativeModel({ model: "gemini-pro" });
             } else {
